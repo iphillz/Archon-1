@@ -1,7 +1,7 @@
 services:
   archon-server:
     build:
-      context: https://github.com/coleam00/archon.git#main:python
+      context: ./python
       dockerfile: Dockerfile.server
     expose:
       - "${ARCHON_SERVER_PORT:-8181}"
@@ -27,7 +27,7 @@ services:
 
   archon-mcp:
     build:
-      context: https://github.com/coleam00/archon.git#main:python
+      context: ./python
       dockerfile: Dockerfile.mcp
     expose:
       - "${ARCHON_MCP_PORT:-8051}"
@@ -57,7 +57,7 @@ services:
 
   archon-frontend:
     build:
-      context: https://github.com/coleam00/archon.git#main:archon-ui-main
+      context: ./archon-ui-main
     expose:
       - "${ARCHON_UI_PORT:-3737}"
     environment:
