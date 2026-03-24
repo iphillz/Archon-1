@@ -39,7 +39,37 @@ def get_agent_work_orders_client() -> Client:
             "These should match the credentials used by the main Archon server."
         )
 
-    return create_client(url, key)
+    try:
+        # Some versions of supabase-py don't support the new sb_secret_ format yet.
+        # If the key doesn't look like a JWT (doesn't contain '.'),
+        # we use a dummy JWT to initialize and then override the auth headers.
+        try:
+            client = create_client(url, key)
+        except Exception as e:
+            if "Invalid API key" in str(e) or (key and "sb_secret_" in key):
+                logger.info("New Supabase secret format detected in agent_work_orders. Using initialization override.")
+                # Use a valid-looking dummy JWT to bypass the library's internal regex check
+                dummy_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.s0"
+                client = create_client(url, dummy_jwt)
+                
+                # Override the key for data operations (PostgREST)
+                client.postgrest.auth(key)
+                
+                # Crucial: New Supabase keys also need the 'apikey' header updated
+                if hasattr(client.postgrest, "session"):
+                    client.postgrest.session.headers["apikey"] = key
+                else:
+                    # Fallback for newer postgrest versions
+                    client.postgrest.headers["apikey"] = key
+                    
+                # Set the key on the client instance itself
+                client.supabase_key = key
+            else:
+                raise e
+        return client
+    except Exception as e:
+        logger.error(f"Failed to create Supabase client for agent_work_orders: {e}")
+        raise
 
 
 async def check_database_health() -> dict[str, Any]:

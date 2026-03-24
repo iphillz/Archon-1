@@ -50,35 +50,10 @@ class CredentialService:
         self._rag_cache_ttl = 300  # 5 minutes TTL for RAG settings cache
 
     def _get_supabase_client(self) -> Client:
-        """
-        Get or create a properly configured Supabase client using environment variables.
-        Uses the standard Supabase client initialization.
-        """
+        """Get or create a properly configured Supabase client using the shared utility."""
         if self._supabase is None:
-            url = os.getenv("SUPABASE_URL")
-            key = os.getenv("SUPABASE_SERVICE_KEY")
-
-            if not url or not key:
-                raise ValueError(
-                    "SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment variables"
-                )
-
-            try:
-                # Initialize with standard Supabase client - no need for custom headers
-                self._supabase = create_client(url, key)
-
-                # Extract project ID from URL for logging purposes only
-                match = re.match(r"https://([^.]+)\.supabase\.co", url)
-                if match:
-                    project_id = match.group(1)
-                    logger.debug(f"Supabase client initialized for project: {project_id}")
-                else:
-                    logger.debug("Supabase client initialized successfully")
-
-            except Exception as e:
-                logger.error(f"Error initializing Supabase client: {e}")
-                raise
-
+            from .client_manager import get_supabase_client
+            self._supabase = get_supabase_client()
         return self._supabase
 
     def _get_encryption_key(self) -> bytes:

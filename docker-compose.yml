@@ -1,239 +1,84 @@
-# Docker Compose profiles:
-# - Default (no profile): Starts archon-server, archon-mcp, and archon-frontend
-# - Agents are opt-in: archon-agents starts only with the "agents" profile
-# Usage:
-#   docker compose up                        # Starts server, mcp, frontend (agents disabled)
-#   docker compose --profile agents up -d    # Also starts archon-agents
-
 services:
-  # Server Service (FastAPI + Socket.IO + Crawling)
   archon-server:
     build:
-      context: ./python
+      context: https://github.com/coleam00/archon.git#main:python
       dockerfile: Dockerfile.server
-      args:
-        BUILDKIT_INLINE_CACHE: 1
-        ARCHON_SERVER_PORT: ${ARCHON_SERVER_PORT:-8181}
-    container_name: archon-server
-    ports:
-      - "${ARCHON_SERVER_PORT:-8181}:${ARCHON_SERVER_PORT:-8181}"
+    expose:
+      - "${ARCHON_SERVER_PORT:-8181}"
     environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN:-}
-      - SERVICE_DISCOVERY_MODE=docker_compose
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - ARCHON_SERVER_PORT=${ARCHON_SERVER_PORT:-8181}
-      - ARCHON_MCP_PORT=${ARCHON_MCP_PORT:-8051}
-      - ARCHON_AGENTS_PORT=${ARCHON_AGENTS_PORT:-8052}
-      - AGENT_WORK_ORDERS_PORT=${AGENT_WORK_ORDERS_PORT:-8053}
-      - AGENTS_ENABLED=${AGENTS_ENABLED:-false}
-      - ARCHON_HOST=${HOST:-localhost}
+      SUPABASE_URL: "${SUPABASE_URL}"
+      SUPABASE_SERVICE_KEY: "${SUPABASE_SERVICE_KEY}"
+      SERVICE_DISCOVERY_MODE: "${SERVICE_DISCOVERY_MODE:-docker_compose}"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      ARCHON_SERVER_PORT: "${ARCHON_SERVER_PORT:-8181}"
+      ARCHON_MCP_PORT: "${ARCHON_MCP_PORT:-8051}"
+      AGENTS_ENABLED: "${AGENTS_ENABLED:-false}"
+      PROD: "${PROD:-true}"
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.archon-server.rule=Host(`${SERVER_DOMAIN:-api-archon.getcoldwolf.com}`)
+      - traefik.http.routers.archon-server.entrypoints=https
+      - traefik.http.routers.archon-server.tls.certresolver=letsencrypt
+      - traefik.http.services.archon-server.loadbalancer.server.port=${ARCHON_SERVER_PORT:-8181}
     networks:
-      - app-network
-    volumes:
-      # SECURITY: Docker socket mounting removed (CVE-2025-9074 - CVSS 9.3)
-      # MCP status now monitored via HTTP health checks (secure, portable)
-      # To re-enable Docker socket mode (not recommended):
-      #   1. Set ENABLE_DOCKER_SOCKET_MONITORING=true in .env
-      #   2. Uncomment the line below
-      # - /var/run/docker.sock:/var/run/docker.sock # SECURITY RISK: root-equivalent host access
-      - ./python/src:/app/src # Mount source code for hot reload
-      - ./python/tests:/app/tests # Mount tests for UI test execution
-      - ./migration:/app/migration # Mount migration files for version tracking
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    command:
-      [
-        "python",
-        "-m",
-        "uvicorn",
-        "src.server.main:app",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "${ARCHON_SERVER_PORT:-8181}",
-        "--reload",
-      ]
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "sh",
-          "-c",
-          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:${ARCHON_SERVER_PORT:-8181}/health'')"',
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - coolify
+    restart: always
 
-  # Lightweight MCP Server Service (HTTP-based)
   archon-mcp:
     build:
-      context: ./python
+      context: https://github.com/coleam00/archon.git#main:python
       dockerfile: Dockerfile.mcp
-      args:
-        BUILDKIT_INLINE_CACHE: 1
-        ARCHON_MCP_PORT: ${ARCHON_MCP_PORT:-8051}
-    container_name: archon-mcp
-    ports:
-      - "${ARCHON_MCP_PORT:-8051}:${ARCHON_MCP_PORT:-8051}"
+    expose:
+      - "${ARCHON_MCP_PORT:-8051}"
     environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
-      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN:-}
-      - SERVICE_DISCOVERY_MODE=docker_compose
-      - TRANSPORT=sse
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      # MCP needs to know where to find other services
-      - API_SERVICE_URL=http://archon-server:${ARCHON_SERVER_PORT:-8181}
-      - AGENTS_ENABLED=${AGENTS_ENABLED:-false}
-      - AGENTS_SERVICE_URL=${AGENTS_SERVICE_URL:-http://archon-agents:${ARCHON_AGENTS_PORT:-8052}}
-      - ARCHON_MCP_PORT=${ARCHON_MCP_PORT:-8051}
-      - ARCHON_SERVER_PORT=${ARCHON_SERVER_PORT:-8181}
-      - ARCHON_AGENTS_PORT=${ARCHON_AGENTS_PORT:-8052}
+      SUPABASE_URL: "${SUPABASE_URL}"
+      SUPABASE_SERVICE_KEY: "${SUPABASE_SERVICE_KEY}"
+      SERVICE_DISCOVERY_MODE: "${SERVICE_DISCOVERY_MODE:-docker_compose}"
+      TRANSPORT: "sse"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      API_SERVICE_URL: "http://archon-server:${ARCHON_SERVER_PORT:-8181}"
+      AGENTS_ENABLED: "${AGENTS_ENABLED:-false}"
+      ARCHON_MCP_PORT: "${ARCHON_MCP_PORT:-8051}"
+      ARCHON_SERVER_PORT: "${ARCHON_SERVER_PORT:-8181}"
+      PROD: "${PROD:-true}"
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.archon-mcp.rule=Host(`${MCP_DOMAIN:-mcp-archon.getcoldwolf.com}`)
+      - traefik.http.routers.archon-mcp.entrypoints=https
+      - traefik.http.routers.archon-mcp.tls.certresolver=letsencrypt
+      - traefik.http.services.archon-mcp.loadbalancer.server.port=${ARCHON_MCP_PORT:-8051}
     networks:
-      - app-network
-    depends_on:
-      archon-server:
-        condition: service_healthy
-      
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "sh",
-          "-c",
-          'python -c "import socket; s=socket.socket(); s.connect((''localhost'', ${ARCHON_MCP_PORT:-8051})); s.close()"',
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s # Give dependencies time to start
-
-  # AI Agents Service (ML/Reranking)
-  archon-agents:
-    profiles:
-      - agents  # Only starts when explicitly using --profile agents
-    build:
-      context: ./python
-      dockerfile: Dockerfile.agents
-      args:
-        BUILDKIT_INLINE_CACHE: 1
-        ARCHON_AGENTS_PORT: ${ARCHON_AGENTS_PORT:-8052}
-    container_name: archon-agents
-    ports:
-      - "${ARCHON_AGENTS_PORT:-8052}:${ARCHON_AGENTS_PORT:-8052}"
-    environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN:-}
-      - SERVICE_DISCOVERY_MODE=docker_compose
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - ARCHON_AGENTS_PORT=${ARCHON_AGENTS_PORT:-8052}
-      - ARCHON_SERVER_PORT=${ARCHON_SERVER_PORT:-8181}
-    networks:
-      - app-network
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "sh",
-          "-c",
-          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:${ARCHON_AGENTS_PORT:-8052}/health'')"',
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # Agent Work Orders Service (Independent microservice for workflow execution)
-  archon-agent-work-orders:
-    profiles:
-      - work-orders  # Only starts when explicitly using --profile work-orders
-    build:
-      context: ./python
-      dockerfile: Dockerfile.agent-work-orders
-      args:
-        BUILDKIT_INLINE_CACHE: 1
-        AGENT_WORK_ORDERS_PORT: ${AGENT_WORK_ORDERS_PORT:-8053}
-    container_name: archon-agent-work-orders
+      - coolify
     depends_on:
       - archon-server
-    ports:
-      - "${AGENT_WORK_ORDERS_PORT:-8053}:${AGENT_WORK_ORDERS_PORT:-8053}"
-    environment:
-      - ENABLE_AGENT_WORK_ORDERS=true
-      - SERVICE_DISCOVERY_MODE=docker_compose
-      - STATE_STORAGE_TYPE=supabase
-      - ARCHON_SERVER_URL=http://archon-server:${ARCHON_SERVER_PORT:-8181}
-      - ARCHON_MCP_URL=http://archon-mcp:${ARCHON_MCP_PORT:-8051}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
-      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN:-}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - AGENT_WORK_ORDERS_PORT=${AGENT_WORK_ORDERS_PORT:-8053}
-      - CLAUDE_CLI_PATH=${CLAUDE_CLI_PATH:-claude}
-      - GH_CLI_PATH=${GH_CLI_PATH:-gh}
-      - GH_TOKEN=${GITHUB_PAT_TOKEN}
-    networks:
-      - app-network
-    volumes:
-      - ./python/src/agent_work_orders:/app/src/agent_work_orders # Hot reload for agent work orders
-      - /tmp/agent-work-orders:/tmp/agent-work-orders # Temp files
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          'import urllib.request; urllib.request.urlopen("http://localhost:${AGENT_WORK_ORDERS_PORT:-8053}/health")',
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    restart: always
 
-  # Frontend
   archon-frontend:
-    build: ./archon-ui-main
-    container_name: archon-ui
-    ports:
-      - "${ARCHON_UI_PORT:-3737}:3737"
+    build:
+      context: https://github.com/coleam00/archon.git#main:archon-ui-main
+    expose:
+      - "${ARCHON_UI_PORT:-3737}"
     environment:
-      # Don't set VITE_API_URL so frontend uses relative URLs through proxy
-      # - VITE_API_URL=http://${HOST:-localhost}:${ARCHON_SERVER_PORT:-8181}
-      - VITE_ARCHON_SERVER_PORT=${ARCHON_SERVER_PORT:-8181}
-      - ARCHON_SERVER_PORT=${ARCHON_SERVER_PORT:-8181}
-      - HOST=${HOST:-localhost}
-      - PROD=${PROD:-false}
-      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
-      - VITE_SHOW_DEVTOOLS=${VITE_SHOW_DEVTOOLS:-false}
-      - DOCKER_ENV=true
+      VITE_ARCHON_SERVER_PORT: "${ARCHON_SERVER_PORT:-8181}"
+      ARCHON_SERVER_PORT: "${ARCHON_SERVER_PORT:-8181}"
+      PROD: "${PROD:-true}"
+      DOCKER_ENV: "${DOCKER_ENV:-true}"
+      VITE_ALLOWED_HOSTS: "${FRONTEND_DOMAIN:-archon.getcoldwolf.com}"
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.archon-frontend.rule=Host(`${FRONTEND_DOMAIN:-archon.getcoldwolf.com}`)
+      - traefik.http.routers.archon-frontend.entrypoints=https
+      - traefik.http.routers.archon-frontend.tls.certresolver=letsencrypt
+      - traefik.http.services.archon-frontend.loadbalancer.server.port=${ARCHON_UI_PORT:-3737}
     networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3737"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    volumes:
-      - ./archon-ui-main/src:/app/src
-      - ./archon-ui-main/public:/app/public
+      - coolify
     depends_on:
-      archon-server:
-        condition: service_healthy
+      - archon-server
+    restart: always
 
 networks:
-  app-network:
-    driver: bridge
+  coolify:
+    external: true
