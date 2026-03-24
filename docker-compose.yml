@@ -17,10 +17,10 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=coolify
-      - traefik.http.routers.archon-server.rule=Host(`${SERVER_DOMAIN:-api-archon.getcoldwolf.com}`)
+      - traefik.http.routers.archon-server.rule=Host(`api-archon.getcoldwolf.com`)
       - traefik.http.routers.archon-server.entrypoints=https
       - traefik.http.routers.archon-server.tls.certresolver=letsencrypt
-      - traefik.http.services.archon-server.loadbalancer.server.port=${ARCHON_SERVER_PORT:-8181}
+      - traefik.http.services.archon-server.loadbalancer.server.port=8181
     networks:
       - coolify
     restart: always
@@ -45,10 +45,10 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=coolify
-      - traefik.http.routers.archon-mcp.rule=Host(`${MCP_DOMAIN:-mcp-archon.getcoldwolf.com}`)
+      - traefik.http.routers.archon-mcp.rule=Host(`mcp-archon.getcoldwolf.com`)
       - traefik.http.routers.archon-mcp.entrypoints=https
       - traefik.http.routers.archon-mcp.tls.certresolver=letsencrypt
-      - traefik.http.services.archon-mcp.loadbalancer.server.port=${ARCHON_MCP_PORT:-8051}
+      - traefik.http.services.archon-mcp.loadbalancer.server.port=8051
     networks:
       - coolify
     depends_on:
@@ -69,10 +69,10 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=coolify
-      - traefik.http.routers.archon-frontend.rule=Host(`${FRONTEND_DOMAIN:-archon.getcoldwolf.com}`)
+      - traefik.http.routers.archon-frontend.rule=Host(`archon.getcoldwolf.com`)
       - traefik.http.routers.archon-frontend.entrypoints=https
       - traefik.http.routers.archon-frontend.tls.certresolver=letsencrypt
-      - traefik.http.services.archon-frontend.loadbalancer.server.port=${ARCHON_UI_PORT:-3737}
+      - traefik.http.services.archon-frontend.loadbalancer.server.port=3737
     networks:
       - coolify
     depends_on:
