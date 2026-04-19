@@ -65,11 +65,11 @@ services:
       ARCHON_SERVER_PORT: "${ARCHON_SERVER_PORT:-8181}"
       PROD: "${PROD:-true}"
       DOCKER_ENV: "${DOCKER_ENV:-true}"
-      VITE_ALLOWED_HOSTS: "${FRONTEND_DOMAIN:-archon.getcoldwolf.com}"
+      VITE_ALLOWED_HOSTS: "${FRONTEND_DOMAIN:-archon-tasks.getcoldwolf.com}"
     labels:
       - traefik.enable=true
       - traefik.docker.network=coolify
-      - traefik.http.routers.archon-frontend.rule=Host(`archon.getcoldwolf.com`)
+      - traefik.http.routers.archon-frontend.rule=Host(`archon-tasks.getcoldwolf.com`)
       - traefik.http.routers.archon-frontend.entrypoints=https
       - traefik.http.routers.archon-frontend.tls.certresolver=letsencrypt
       - traefik.http.services.archon-frontend.loadbalancer.server.port=3737
