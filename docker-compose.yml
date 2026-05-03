@@ -10,7 +10,7 @@ services:
     environment:
       ARCHON_DOCKER: "true"
       # If using Supabase as before, this will use it. Otherwise defaults to SQLite.
-      DATABASE_URL: "${SUPABASE_URL}"
+      DATABASE_URL: "${DATABASE_URL}"
     volumes:
       - ${ARCHON_DATA:-archon_data}:/.archon
     networks:
