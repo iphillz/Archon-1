@@ -11,8 +11,6 @@ services:
       ARCHON_DOCKER: "true"
       # If using Supabase as before, this will use it. Otherwise defaults to SQLite.
       DATABASE_URL: "${SUPABASE_URL}"
-    ports:
-      - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       - ${ARCHON_DATA:-archon_data}:/.archon
     networks:
